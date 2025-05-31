@@ -58,6 +58,7 @@ export default {
 					white: 'hsl(var(--adverto-white))',
 					green: 'hsl(var(--adverto-green))',
 					blue: 'hsl(var(--adverto-blue))',
+					cream: '#fffcf5',
 				}
 			},
 			borderRadius: {
