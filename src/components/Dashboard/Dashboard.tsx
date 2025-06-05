@@ -2,70 +2,53 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { StatsCards } from './StatsCards';
 import { ClicksTable } from './ClicksTable';
 import { LocationChart } from './LocationChart';
 import { PhoneNumberManager } from './PhoneNumberManager';
+import { usePhoneNumbers } from '@/hooks/usePhoneNumbers';
+import { useClicks } from '@/hooks/useClicks';
+import { supabase } from '@/lib/supabase';
 
 interface DashboardProps {
   userEmail: string;
   onLogout: () => void;
 }
 
-export interface ClickData {
-  id: string;
-  timestamp: Date;
-  ip: string;
-  city: string;
-  state: string;
-  phoneNumber: string;
-}
-
-export interface PhoneNumber {
-  id: string;
-  number: string;
-  isActive: boolean;
-  clicks: number;
-}
-
 export const Dashboard = ({ userEmail, onLogout }: DashboardProps) => {
-  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([
-    { id: '1', number: '+5511999999999', isActive: true, clicks: 15 },
-    { id: '2', number: '+5511888888888', isActive: true, clicks: 12 },
-    { id: '3', number: '+5511777777777', isActive: false, clicks: 8 },
-  ]);
-  
-  const [clicks, setClicks] = useState<ClickData[]>([
-    {
-      id: '1',
-      timestamp: new Date('2024-05-31T10:30:00'),
-      ip: '192.168.1.100',
-      city: 'São Paulo',
-      state: 'SP',
-      phoneNumber: '+5511999999999'
-    },
-    {
-      id: '2',
-      timestamp: new Date('2024-05-31T11:15:00'),
-      ip: '192.168.1.101',
-      city: 'Rio de Janeiro',
-      state: 'RJ',
-      phoneNumber: '+5511888888888'
-    },
-    {
-      id: '3',
-      timestamp: new Date('2024-05-31T12:00:00'),
-      ip: '192.168.1.102',
-      city: 'Belo Horizonte',
-      state: 'MG',
-      phoneNumber: '+5511999999999'
-    },
-  ]);
-
+  const [userProfile, setUserProfile] = useState<{ id: string; username: string } | null>(null);
   const { toast } = useToast();
-  const fixedLink = `adverto.link/${userEmail.split('@')[0]}`;
+
+  // Get user profile
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('id, username')
+            .eq('id', user.id)
+            .single();
+          
+          if (profile) {
+            setUserProfile(profile);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const { phoneNumbers, loading: phoneLoading, addPhoneNumber, updatePhoneNumber, removePhoneNumber } = usePhoneNumbers(userProfile?.id);
+  const { clicks, loading: clicksLoading, getClickStats } = useClicks(userProfile?.id);
+
+  const stats = getClickStats();
+  const fixedLink = userProfile ? `adverto.link/${userProfile.username}` : '';
 
   const copyLink = async () => {
     try {
@@ -83,9 +66,20 @@ export const Dashboard = ({ userEmail, onLogout }: DashboardProps) => {
     }
   };
 
-  const totalClicks = clicks.length;
-  const activeNumbers = phoneNumbers.filter(p => p.isActive).length;
-  const topStates = [...new Set(clicks.map(c => c.state))].slice(0, 3);
+  const activeNumbers = phoneNumbers.filter(p => p.is_active).length;
+
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-adverto-green rounded-full flex items-center justify-center mx-auto animate-pulse">
+            <span className="text-white font-bold text-xl">AL</span>
+          </div>
+          <p className="text-gray-600">Carregando perfil...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -130,6 +124,7 @@ export const Dashboard = ({ userEmail, onLogout }: DashboardProps) => {
             <Button 
               onClick={copyLink}
               className="bg-white text-adverto-green hover:bg-white/90"
+              disabled={!fixedLink}
             >
               📋 Copiar Link
             </Button>
@@ -138,21 +133,24 @@ export const Dashboard = ({ userEmail, onLogout }: DashboardProps) => {
 
         {/* Stats Cards */}
         <StatsCards 
-          totalClicks={totalClicks}
+          totalClicks={stats.totalClicks}
           activeNumbers={activeNumbers}
-          topStates={topStates}
+          topStates={stats.topStates}
         />
 
         {/* Phone Numbers Management */}
         <PhoneNumberManager 
           phoneNumbers={phoneNumbers}
-          setPhoneNumbers={setPhoneNumbers}
+          onAddNumber={addPhoneNumber}
+          onUpdateNumber={updatePhoneNumber}
+          onRemoveNumber={removePhoneNumber}
+          loading={phoneLoading}
         />
 
         {/* Analytics Section */}
         <div className="grid lg:grid-cols-2 gap-8">
-          <LocationChart clicks={clicks} />
-          <ClicksTable clicks={clicks} />
+          <LocationChart clicks={clicks} loading={clicksLoading} />
+          <ClicksTable clicks={clicks} loading={clicksLoading} />
         </div>
 
       </main>

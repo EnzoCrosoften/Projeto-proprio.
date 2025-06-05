@@ -6,18 +6,28 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import type { PhoneNumber } from './Dashboard';
+import type { PhoneNumber } from '@/lib/supabase';
 
 interface PhoneNumberManagerProps {
   phoneNumbers: PhoneNumber[];
-  setPhoneNumbers: (numbers: PhoneNumber[]) => void;
+  onAddNumber: (number: string) => Promise<boolean>;
+  onUpdateNumber: (id: string, updates: Partial<PhoneNumber>) => Promise<boolean>;
+  onRemoveNumber: (id: string) => Promise<boolean>;
+  loading: boolean;
 }
 
-export const PhoneNumberManager = ({ phoneNumbers, setPhoneNumbers }: PhoneNumberManagerProps) => {
+export const PhoneNumberManager = ({ 
+  phoneNumbers, 
+  onAddNumber, 
+  onUpdateNumber, 
+  onRemoveNumber, 
+  loading 
+}: PhoneNumberManagerProps) => {
   const [newNumber, setNewNumber] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
   const { toast } = useToast();
 
-  const addPhoneNumber = () => {
+  const addPhoneNumber = async () => {
     if (!newNumber.trim()) {
       toast({
         title: "Erro",
@@ -36,36 +46,39 @@ export const PhoneNumberManager = ({ phoneNumbers, setPhoneNumbers }: PhoneNumbe
       return;
     }
 
-    const formatted = newNumber.startsWith('+') ? newNumber : `+55${newNumber}`;
-    const newPhone: PhoneNumber = {
-      id: Date.now().toString(),
-      number: formatted,
-      isActive: true,
-      clicks: 0
-    };
-
-    setPhoneNumbers([...phoneNumbers, newPhone]);
-    setNewNumber('');
-    
-    toast({
-      title: "Número adicionado!",
-      description: "O número foi adicionado à rotação",
-    });
+    setIsAdding(true);
+    const success = await onAddNumber(newNumber);
+    if (success) {
+      setNewNumber('');
+    }
+    setIsAdding(false);
   };
 
-  const toggleActive = (id: string) => {
-    setPhoneNumbers(phoneNumbers.map(phone => 
-      phone.id === id ? { ...phone, isActive: !phone.isActive } : phone
-    ));
+  const toggleActive = async (id: string, currentActive: boolean) => {
+    await onUpdateNumber(id, { is_active: !currentActive });
   };
 
-  const removeNumber = (id: string) => {
-    setPhoneNumbers(phoneNumbers.filter(phone => phone.id !== id));
-    toast({
-      title: "Número removido",
-      description: "O número foi removido da rotação",
-    });
+  const removeNumber = async (id: string) => {
+    await onRemoveNumber(id);
   };
+
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Gerenciar Números</CardTitle>
+          <CardDescription>Carregando números...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4">
+            <div className="h-10 bg-gray-200 rounded"></div>
+            <div className="h-16 bg-gray-200 rounded"></div>
+            <div className="h-16 bg-gray-200 rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-0 shadow-lg">
@@ -84,12 +97,14 @@ export const PhoneNumberManager = ({ phoneNumbers, setPhoneNumbers }: PhoneNumbe
             value={newNumber}
             onChange={(e) => setNewNumber(e.target.value)}
             className="flex-1"
+            disabled={isAdding}
           />
           <Button 
             onClick={addPhoneNumber}
             className="bg-adverto-green hover:bg-adverto-green/90"
+            disabled={isAdding || phoneNumbers.length >= 5}
           >
-            Adicionar
+            {isAdding ? "Adicionando..." : "Adicionar"}
           </Button>
         </div>
 
@@ -106,18 +121,18 @@ export const PhoneNumberManager = ({ phoneNumbers, setPhoneNumbers }: PhoneNumbe
                 </div>
                 <div>
                   <div className="font-medium">{phone.number}</div>
-                  <div className="text-sm text-gray-500">{phone.clicks} cliques</div>
+                  <div className="text-sm text-gray-500">{phone.clicks_count} cliques</div>
                 </div>
               </div>
               
               <div className="flex items-center space-x-4">
-                <Badge variant={phone.isActive ? "default" : "secondary"}>
-                  {phone.isActive ? "Ativo" : "Inativo"}
+                <Badge variant={phone.is_active ? "default" : "secondary"}>
+                  {phone.is_active ? "Ativo" : "Inativo"}
                 </Badge>
                 
                 <Switch
-                  checked={phone.isActive}
-                  onCheckedChange={() => toggleActive(phone.id)}
+                  checked={phone.is_active}
+                  onCheckedChange={() => toggleActive(phone.id, phone.is_active)}
                 />
                 
                 <Button

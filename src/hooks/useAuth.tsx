@@ -1,34 +1,28 @@
 
-import { useState, useEffect } from 'react';
+import { useSupabaseAuth } from './useSupabaseAuth'
 
 export const useAuth = () => {
-  const [user, setUser] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, loading, signIn, signOut } = useSupabaseAuth()
 
-  useEffect(() => {
-    // Verificar se há um usuário logado no localStorage
-    const savedUser = localStorage.getItem('advertolinks_user');
-    if (savedUser) {
-      setUser(savedUser);
+  const login = async (email: string, password: string) => {
+    const { error } = await signIn(email, password)
+    if (error) {
+      throw new Error(error.message)
     }
-    setIsLoading(false);
-  }, []);
+  }
 
-  const login = (email: string) => {
-    setUser(email);
-    localStorage.setItem('advertolinks_user', email);
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('advertolinks_user');
-  };
+  const logout = async () => {
+    const { error } = await signOut()
+    if (error) {
+      throw new Error(error.message)
+    }
+  }
 
   return {
-    user,
-    isLoading,
+    user: user?.email || null,
+    isLoading: loading,
     login,
     logout,
     isAuthenticated: !!user
-  };
-};
+  }
+}

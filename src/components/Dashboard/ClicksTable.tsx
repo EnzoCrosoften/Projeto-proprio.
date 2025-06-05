@@ -1,22 +1,41 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { ClickData } from './Dashboard';
+import type { Click } from '@/lib/supabase';
 
 interface ClicksTableProps {
-  clicks: ClickData[];
+  clicks: Click[];
+  loading: boolean;
 }
 
-export const ClicksTable = ({ clicks }: ClicksTableProps) => {
-  const formatDate = (date: Date) => {
+export const ClicksTable = ({ clicks, loading }: ClicksTableProps) => {
+  const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(date);
+    }).format(new Date(dateString));
   };
+
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Registros de Cliques</CardTitle>
+          <CardDescription>Carregando histórico...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-16 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-0 shadow-lg">
@@ -41,16 +60,16 @@ export const ClicksTable = ({ clicks }: ClicksTableProps) => {
                 >
                   <div className="space-y-1">
                     <div className="font-medium text-sm">
-                      {click.city}, {click.state}
+                      {click.city || 'Cidade desconhecida'}, {click.state || 'Estado desconhecido'}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {formatDate(click.timestamp)} • IP: {click.ip}
+                      {formatDate(click.clicked_at)} • IP: {click.ip_address || 'Desconhecido'}
                     </div>
                   </div>
                   
                   <div className="text-right space-y-1">
                     <Badge variant="outline" className="text-xs">
-                      {click.phoneNumber.slice(-4)}
+                      {click.phone_number.slice(-4)}
                     </Badge>
                     <div className="text-xs text-gray-500">
                       Redirecionado

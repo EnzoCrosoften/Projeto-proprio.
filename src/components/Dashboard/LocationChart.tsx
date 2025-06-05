@@ -1,16 +1,18 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import type { ClickData } from './Dashboard';
+import type { Click } from '@/lib/supabase';
 
 interface LocationChartProps {
-  clicks: ClickData[];
+  clicks: Click[];
+  loading: boolean;
 }
 
-export const LocationChart = ({ clicks }: LocationChartProps) => {
+export const LocationChart = ({ clicks, loading }: LocationChartProps) => {
   // Agrupar cliques por estado
   const stateStats = clicks.reduce((acc, click) => {
-    acc[click.state] = (acc[click.state] || 0) + 1;
+    const state = click.state || 'Desconhecido';
+    acc[state] = (acc[state] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -18,6 +20,20 @@ export const LocationChart = ({ clicks }: LocationChartProps) => {
     .map(([state, count]) => ({ state, cliques: count }))
     .sort((a, b) => b.cliques - a.cliques)
     .slice(0, 8);
+
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Cliques por Estado</CardTitle>
+          <CardDescription>Carregando dados...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse h-64 bg-gray-200 rounded"></div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-0 shadow-lg">
